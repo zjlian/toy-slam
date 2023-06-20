@@ -6,4 +6,4 @@ cmake -S . -B build \
 
 cmake --build build/ -- -j8
 
-./build/toy_slam
+# ./build/toy_slam

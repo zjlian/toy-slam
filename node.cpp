@@ -83,12 +83,39 @@ private:
     std::string child_frame_id_;
 };
 
+auto ToROSMsg(const sensor::PointCloud &in, sensor_msgs::PointCloud2 &out)
+{
+    pcl::toROSMsg(*in.cloud_ptr, out);
+    out.header.stamp = ros::Time::now();
+}
+
+auto ToROSMsg(const Eigen::Matrix4f &matrix, nav_msgs::Odometry &out)
+{
+    out.header.frame_id = "map";
+    out.child_frame_id = "lidar";
+    out.header.stamp = ros::Time::now();
+    out.pose.pose.position.x = matrix(0, 3);
+    out.pose.pose.position.y = matrix(1, 3);
+    out.pose.pose.position.z = matrix(2, 3);
+
+    Eigen::Quaternionf q;
+    q = matrix.block<3, 3>(0, 0);
+    out.pose.pose.orientation.x = q.x();
+    out.pose.pose.orientation.y = q.y();
+    out.pose.pose.orientation.z = q.z();
+    out.pose.pose.orientation.w = q.w();
+}
+
+// TODO
+auto ToROSMsg(const sensor::IMU &val) = delete;
+
 class Node
 {
 public:
     Node(ros::NodeHandle &nh)
         : nh_(nh)
     {
+#if 0
         SubscriberSensor();
         InitPublisher();
         Eigen::Matrix4f lidar_to_imu = Eigen::Matrix4f::Identity();
@@ -125,6 +152,14 @@ public:
             pub_.at("map").publish(*output);
         };
         map_builder_->Test(lidar_to_imu, pc_pub, gnss_pub);
+#endif
+    }
+
+    void RunMapping()
+    {
+        SubscriberSensor();
+        InitPublisher();
+        map_builder_->Tick();
     }
 
 private:
@@ -189,6 +224,41 @@ private:
         data->orientation.w = ptr->orientation.w;
 
         map_builder_->GetSensorQueue()->AddData(std::move(data));
+    }
+
+    void PublishPointCloud(ros::Publisher &pub, const sensor::PointCloud &msg, std::string_view frame_id)
+    {
+        sensor_msgs::PointCloud2 ros_msg;
+        pcl::toROSMsg(*msg.cloud_ptr, ros_msg);
+        ros_msg.header.stamp = ros::Time::now();
+        ros_msg.header.frame_id = frame_id;
+        pub.publish(ros_msg);
+    }
+
+    void PublishOdometry(
+        ros::Publisher &pub,
+        const Eigen::Matrix4f &msg,
+        std::string_view frame_id,
+        std::string_view child_frame_id)
+    {
+        nav_msgs::Odometry odom;
+        odom.header.frame_id = frame_id;
+        odom.child_frame_id = child_frame_id;
+        odom.header.stamp = ros::Time::now();
+
+        //set the position
+        odom.pose.pose.position.x = msg(0, 3);
+        odom.pose.pose.position.y = msg(1, 3);
+        odom.pose.pose.position.z = msg(2, 3);
+
+        Eigen::Quaternionf q;
+        q = msg.block<3, 3>(0, 0);
+        odom.pose.pose.orientation.x = q.x();
+        odom.pose.pose.orientation.y = q.y();
+        odom.pose.pose.orientation.z = q.z();
+        odom.pose.pose.orientation.w = q.w();
+
+        pub.publish(odom);
     }
 
 private:

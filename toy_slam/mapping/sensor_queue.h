@@ -42,7 +42,7 @@ namespace toy::mapping
         }
 
         template <typename T>
-        void ParseData(std::deque<std::unique_ptr<T>> &result)
+        void ParseData(std::deque<T> &result)
         {
             auto move_to_back = [](auto &target, auto &source) {
                 std::move(
@@ -52,17 +52,17 @@ namespace toy::mapping
             };
 
             std::lock_guard<std::mutex> lock{mutex_};
-            if constexpr (std::is_same_v<T, sensor::GNSS>)
+            if constexpr (std::is_same_v<typename T::element_type, sensor::GNSS>)
             {
                 move_to_back(result, gnss_);
                 gnss_.clear();
             }
-            else if constexpr (std::is_same_v<T, sensor::IMU>)
+            else if constexpr (std::is_same_v<typename T::element_type, sensor::IMU>)
             {
                 move_to_back(result, imu_);
                 imu_.clear();
             }
-            else if constexpr (std::is_same_v<T, sensor::PointCloud>)
+            else if constexpr (std::is_same_v<typename T::element_type, sensor::PointCloud>)
             {
                 move_to_back(result, pointcloud_);
                 pointcloud_.clear();

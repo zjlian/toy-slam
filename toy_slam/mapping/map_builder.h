@@ -9,10 +9,9 @@
 #include <functional>
 #include <future>
 #include <memory>
+#include <optional>
 #include <thread>
 
-#include "ros/init.h"
-#include "ros/rate.h"
 #include <pcl/common/transforms.h>
 
 namespace toy::mapping
@@ -27,7 +26,7 @@ namespace toy::mapping
         {
             return sensor_;
         }
-
+#if 0
         void Test(Eigen::Matrix4f lidar_to_imu, std::function<void(sensor::PointCloud &)> pc_pub, std::function<void(Eigen::Matrix4f &)> gnss_pub)
         {
             auto result = std::async([=, this] {
@@ -92,10 +91,48 @@ namespace toy::mapping
             });
             result.wait();
         }
+#endif
+        /// 更新雷达和imu的外参
+        void SetLidarToIMU(const Eigen::Matrix4f &val);
+
+        /// 前端更新一次
+        void Tick();
+
+        /// 获取最新的 GNSS Pose
+        Eigen::Matrix4f GetLastGnss();
+
+        /// 获取最新的机器人 Pose
+        Eigen::Matrix4f GetLastPose();
+
+        /// 获取完整的地图
+        std::shared_ptr<sensor::PointCloud::CloudType> GetLastGlobalMap();
+
+        /// 获取当前的局部地图
+        std::shared_ptr<sensor::PointCloud::CloudType> GetLastLocalMap();
+
+        /// 获取最新的扫描帧
+        std::shared_ptr<sensor::PointCloud::CloudType> GetLastLaserScan();
 
     private:
+        /// 获取最新的 GNSS Pose
+        void SetLastGnss(const Eigen::Matrix4f &matrix);
+
+        /// 获取最新的机器人 Pose
+        void SetLastPose(const Eigen::Matrix4f &matrix);
+
+    private:
+        std::optional<Eigen::Matrix4f> lidar_to_imu_;
+        std::optional<double> init_time_;
+
         std::shared_ptr<SensorQueue> sensor_{std::make_shared<SensorQueue>()};
+        std::deque<std::shared_ptr<sensor::GNSS>> gnss_buff_;
+        std::deque<std::shared_ptr<sensor::IMU>> imu_buff_;
+        std::deque<std::shared_ptr<sensor::PointCloud>> pointcloud_buff_;
+
         std::shared_ptr<LocalSlam> local_slam_{std::make_shared<LocalSlam>()};
+
+        Eigen::Matrix4f gnss_pose_;
+        Eigen::Matrix4f slam_pose_;
     };
 
 } // namespace toy::mapping
